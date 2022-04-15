@@ -1,7 +1,7 @@
-use std::io::*;
-use std::env;
-use sqlformat::*;
 use atty::Stream;
+use sqlformat::*;
+use std::env;
+use std::io::*;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const REPOSITORY: &'static str = env!("CARGO_PKG_REPOSITORY");
@@ -32,12 +32,12 @@ fn main() {
         Command::Version => version(),
         Command::Format => format_sql(),
     }
-
 }
 
 fn help() {
     version();
-    println!("    
+    println!(
+        "    
 Simple SQL formatter. Reads from stdin and writes to stdout.
 
 {:>1}
@@ -51,10 +51,12 @@ EXAMPLES:
 
 FLAGS:
     -h, --help       Prints this help information
-    -v, --version    Prints version information", REPOSITORY);
+    -v, --version    Prints version information",
+        REPOSITORY
+    );
 }
 
-fn version () {
+fn version() {
     println!("sqlformat {:>1}", VERSION);
 }
 
@@ -62,18 +64,16 @@ fn format_sql() {
     if atty::is(Stream::Stdin) {
         help();
         return;
-      }
-    
-    let mut buffer = String::new();
-    std::io::stdin().read_to_string(&mut buffer).unwrap_or_else(|error| {
-                panic!("Problem reading stdin: {:?}", error);
-            });
+    }
 
-    let formatted = format(
-        &buffer,
-        &QueryParams::None,
-        FormatOptions::default(),
-    );
+    let mut buffer = String::new();
+    std::io::stdin()
+        .read_to_string(&mut buffer)
+        .unwrap_or_else(|error| {
+            panic!("Problem reading stdin: {:?}", error);
+        });
+
+    let formatted = format(&buffer, &QueryParams::None, FormatOptions::default());
 
     println!("{}", formatted);
 }
