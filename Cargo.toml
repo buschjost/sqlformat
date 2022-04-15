@@ -1,0 +1,20 @@
+[package]
+name = "sqlformat"
+version = "0.0.1-development"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/buschjost/sqlformat"
+repository = "https://github.com/buschjost/sqlformat"
+description = "Formats whitespace in a SQL string to make it easier to read"
+keywords = ["sql"]
+categories = ["development-tools"]
+
+[dependencies]
+sqlformat = ">=0.1.8"
+atty = "0.2"
+
+[profile.release]
+# Reduce binary size following https://github.com/johnthagen/min-sized-rust 
+strip = true  # Automatically strip symbols from the binary.
+lto = true
+panic = "abort"
