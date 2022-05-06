@@ -3,7 +3,7 @@
 This is a tiny CLI tool to format SQL queries in your terminal or your scripts. All heavy lifting is done by the [sqlformat-rs](https://github.com/shssoichiro/sqlformat-rs) library. 
 
 ```
-sqlformat 0.0.1-development
+sqlformat 0.0.1
 
 Simple SQL formatter. Reads from stdin and writes to stdout.
 

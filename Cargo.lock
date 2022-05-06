@@ -78,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "sqlformat-cli"
-version = "0.0.1-development"
+version = "0.0.1"
 dependencies = [
  "atty",
  "sqlformat",
