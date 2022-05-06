@@ -67,14 +67,6 @@ dependencies = [
 
 [[package]]
 name = "sqlformat"
-version = "0.0.1-development"
-dependencies = [
- "atty",
- "sqlformat 0.2.0",
-]
-
-[[package]]
-name = "sqlformat"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f87e292b4291f154971a43c3774364e2cbcaec599d3f5bf6fa9d122885dbc38a"
@@ -82,6 +74,14 @@ dependencies = [
  "itertools",
  "nom",
  "unicode_categories",
+]
+
+[[package]]
+name = "sqlformat-cli"
+version = "0.0.1-development"
+dependencies = [
+ "atty",
+ "sqlformat",
 ]
 
 [[package]]
