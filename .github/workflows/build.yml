@@ -1,0 +1,179 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]"
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    # necessary for windows
+    shell: bash
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - TARGET: x86_64-unknown-linux-gnu
+            OS: ubuntu-latest
+          - TARGET: x86_64-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: aarch64-unknown-linux-gnu
+            OS: ubuntu-latest
+          - TARGET: aarch64-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: armv7-unknown-linux-gnueabihf
+            OS: ubuntu-latest
+          - TARGET: armv7-unknown-linux-musleabihf
+            OS: ubuntu-latest
+          - TARGET: arm-unknown-linux-gnueabihf
+            OS: ubuntu-latest
+          - TARGET: arm-unknown-linux-musleabihf
+            OS: ubuntu-latest
+          - TARGET: x86_64-apple-darwin # is not properly signed so there are security warnings
+            OS: macos-latest
+          - TARGET: aarch64-apple-darwin # is not properly signed so there are security warnings
+            OS: macos-latest
+          - TARGET: x86_64-pc-windows-gnu
+            OS: windows-latest
+    runs-on: ${{ matrix.OS }}
+    env:
+      NAME: sqlformat-cli
+      RELEASE_NAME: sqlformat
+      TARGET: ${{ matrix.TARGET }}
+      OS: ${{ matrix.OS }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+      - name: Cargo cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ./target
+          key: build-cargo-registry-${{matrix.TARGET}}
+      - name: Install and configure dependencies
+        run: |
+          # dependencies are only needed on ubuntu as that's the only place where
+          # we make cross-compilation
+          if [[ $OS =~ ^ubuntu.*$ ]]; then
+            sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
+          fi
+
+          # some additional configuration for cross-compilation on linux
+          cat >>~/.cargo/config <<EOF
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          [target.aarch64-unknown-linux-musl]
+          linker = "aarch64-linux-gnu-gcc"
+          [target.armv7-unknown-linux-gnueabihf]
+          linker = "arm-linux-gnueabihf-gcc"
+          [target.armv7-unknown-linux-musleabihf]
+          linker = "arm-linux-gnueabihf-gcc"
+          [target.arm-unknown-linux-gnueabihf]
+          linker = "arm-linux-gnueabihf-gcc"
+          [target.arm-unknown-linux-musleabihf]
+          linker = "arm-linux-gnueabihf-gcc"
+          EOF
+      - name: Install rust target
+        run: rustup target add $TARGET
+      - name: Run build
+        run: cargo build --release --verbose --target $TARGET
+      - name: Compress
+        run: |
+          mkdir -p ./artifacts
+          # windows is the only OS using a different convention for executable file name
+          if [[ $OS =~ ^windows.*$ ]]; then
+              EXEC=$NAME.exe
+              RELEASE_NAME_EXEC=$RELEASE_NAME.exe
+          else
+              EXEC=$NAME
+              RELEASE_NAME_EXEC=$RELEASE_NAME
+          fi
+          if [[ $GITHUB_REF_TYPE =~ ^tag$ ]]; then
+            TAG=$GITHUB_REF_NAME
+          else
+            TAG=$GITHUB_SHA
+          fi
+          mv ./target/$TARGET/release/$EXEC ./$RELEASE_NAME_EXEC
+          tar -czf ./artifacts/$RELEASE_NAME-$TARGET-$TAG.tar.gz $RELEASE_NAME_EXEC
+      - name: Archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: result
+          path: |
+            ./artifacts
+
+  build-universal:
+    needs: build
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: result
+          path: ./input
+      - name: List
+        run: find ./input
+      - name: Extract x86 & aarch64 binaries
+        run: |
+          if [[ $GITHUB_REF_TYPE =~ ^tag$ ]]; then
+            TAG=$GITHUB_REF_NAME
+          else
+            TAG=$GITHUB_SHA
+          fi
+          mkdir -p ./x86
+          tar -xvf ./input/sqlformat-x86_64-apple-darwin-*.tar.gz --directory ./x86/
+          mkdir -p ./aarch64
+          tar -xvf ./input/sqlformat-aarch64-apple-darwin-$TAG.tar.gz --directory ./aarch64/
+      - name: Build universal binary
+        run: |
+          lipo -create -output sqlformat ./x86/sqlformat ./aarch64/sqlformat
+      - name: Compress
+        run: |
+          mkdir -p ./artifacts
+          if [[ $GITHUB_REF_TYPE =~ ^tag$ ]]; then
+            TAG=$GITHUB_REF_NAME
+          else
+            TAG=$GITHUB_SHA
+          fi
+          tar -czf ./artifacts/sqlformat-universal-apple-darwin-$TAG.tar.gz sqlformat
+      - name: Archive artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: result
+          path: |
+            ./artifacts
+
+  # deploys to github releases on tag
+  deploy:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build-universal
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: result
+          path: ./artifacts
+      - name: List
+        run: find ./artifacts
+      - name: Compute checksums
+        run: |
+          cd ./artifacts
+          sha256sum * > SHA256SUMS
+          cat ./artifacts/SHA256SUMS
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./artifacts/*.tar.gz
+            ./artifacts/SHA256SUMS
