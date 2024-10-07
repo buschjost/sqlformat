@@ -73,7 +73,7 @@ fn format_sql() {
             panic!("Problem reading stdin: {:?}", error);
         });
 
-    let formatted = format(&buffer, &QueryParams::None, FormatOptions::default());
+    let formatted = format(&buffer, &QueryParams::None, &FormatOptions::default());
 
     println!("{}", formatted);
 }
